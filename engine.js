@@ -1,98 +1,24 @@
-/**
- * 🎮 SUPER SIMPLE 2D Console Engine
- * Даже Паша Уткин из 1 класса может это использовать!
- */
+// 🎮 SUPER SIMPLE 2D Console Engine
+// Настолько простой, что даже Паша Уткин сделает игру!
 
-class Game {
-  constructor(width = 40, height = 20) {
-    this.width = width;
-    this.height = height;
-    this.canvas = Array(height).fill(null).map(() => Array(width).fill(' '));
-    this.objects = [];
-    this.running = true;
-    this.gameSpeed = 100; // ms между кадрами
-  }
-
-  // Добавить объект в игру
-  add(obj) {
-    this.objects.push(obj);
-    return obj;
-  }
-
-  // Нарисовать точку на экране
-  setPixel(x, y, char) {
-    if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-      this.canvas[Math.floor(y)][Math.floor(x)] = char;
-    }
-  }
-
-  // Очистить весь экран
-  clear() {
-    this.canvas = Array(this.height).fill(null).map(() => Array(this.width).fill(' '));
-  }
-
-  // Главный цикл игры
-  async start(updateFn) {
-    while (this.running) {
-      this.clear();
-
-      // Обновляем все объекты
-      this.objects.forEach(obj => {
-        if (obj.update) obj.update(this);
-      });
-
-      // Вызываем функцию обновления игры
-      if (updateFn) updateFn(this);
-
-      // Рисуем все объекты
-      this.objects.forEach(obj => {
-        if (obj.render) obj.render(this);
-      });
-
-      // Выводим на экран
-      this.render();
-
-      // Ждём перед следующим кадром
-      await new Promise(r => setTimeout(r, this.gameSpeed));
-    }
-  }
-
-  // Вывести на экран
-  render() {
-    console.clear();
-    let output = '';
-    output += '┌' + '─'.repeat(this.width) + '┐\n';
-    for (let row of this.canvas) {
-      output += '│' + row.join('') + '│\n';
-    }
-    output += '└' + '─'.repeat(this.width) + '┘\n';
-    console.log(output);
-  }
-
-  // Остановить игру
-  stop() {
-    this.running = false;
-  }
-}
-
-// Простой игровой объект
 class GameObject {
-  constructor(x, y, char, name = 'object') {
-    this.x = x;
-    this.y = y;
-    this.char = char;
-    this.name = name;
-    this.vx = 0; // скорость по X
-    this.vy = 0; // скорость по Y
+  constructor(x, y, char = '█') {
+    this.x = x;          // позиция X
+    this.y = y;          // позиция Y
+    this.char = char;    // символ на экране
+    this.vx = 0;         // скорость по X
+    this.vy = 0;         // скорость по Y
+    this.active = true;  // активен ли объект
   }
 
-  // Нарисовать себя
-  render(game) {
-    game.setPixel(this.x, this.y, this.char);
+  // Установить скорость
+  setVelocity(vx, vy) {
+    this.vx = vx;
+    this.vy = vy;
   }
 
-  // Обновить позицию (переопределить в подклассах)
-  update(game) {
+  // Обновить позицию каждый фрейм
+  update() {
     this.x += this.vx;
     this.y += this.vy;
   }
@@ -101,21 +27,97 @@ class GameObject {
   collidesWith(other) {
     return Math.abs(this.x - other.x) < 1 && Math.abs(this.y - other.y) < 1;
   }
+}
 
-  // Переместить объект
-  moveTo(x, y) {
-    this.x = x;
-    this.y = y;
+class Game {
+  constructor(width, height, fps = 10) {
+    this.width = width;   // ширина консоли
+    this.height = height; // высота консоли
+    this.fps = fps;       // кадры в секунду
+    this.objects = [];    // все объекты на сцене
+    this.frame = 0;       // номер текущего фрейма
+    this.score = 0;       // очки
+    this.gameLoop = null; // ID интервала
   }
 
-  // Установить скорость
-  setVelocity(vx, vy) {
-    this.vx = vx;
-    this.vy = vy;
+  // Добавить объект на сцену
+  add(gameObject) {
+    this.objects.push(gameObject);
+    return gameObject;
+  }
+
+  // Удалить объект со сцены
+  remove(gameObject) {
+    const index = this.objects.indexOf(gameObject);
+    if (index > -1) this.objects.splice(index, 1);
+  }
+
+  // Получить объект по индексу
+  get(index) {
+    return this.objects[index];
+  }
+
+  // Получить ВСЕ объекты
+  getAll() {
+    return this.objects;
+  }
+
+  // Очистить консоль
+  clear() {
+    console.clear();
+  }
+
+  // Нарисовать игру
+  render() {
+    // Создаём сетку
+    let grid = [];
+    for (let y = 0; y < this.height; y++) {
+      let row = [];
+      for (let x = 0; x < this.width; x++) {
+        row.push(' ');
+      }
+      grid.push(row);
+    }
+
+    // Рисуем объекты
+    this.objects.forEach(obj => {
+      const x = Math.round(obj.x);
+      const y = Math.round(obj.y);
+      if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+        grid[y][x] = obj.char;
+      }
+    });
+
+    // Выводим на экран
+    this.clear();
+    console.log('🎮 Frame: ' + this.frame + ' | Score: ' + this.score);
+    grid.forEach(row => console.log(row.join('')));
+  }
+
+  // Главный игровой цикл
+  start(updateCallback) {
+    this.gameLoop = setInterval(() => {
+      // 1. Обновляем логику
+      if (updateCallback) updateCallback(this);
+
+      // 2. Обновляем позиции объектов
+      this.objects.forEach(obj => obj.update());
+
+      // 3. Удаляем неактивные объекты
+      this.objects = this.objects.filter(obj => obj.active);
+
+      // 4. Рисуем
+      this.render();
+
+      // 5. Считаем фреймы
+      this.frame++;
+    }, 1000 / this.fps);
+  }
+
+  // Остановить игру
+  stop() {
+    if (this.gameLoop) clearInterval(this.gameLoop);
   }
 }
 
-// Экспортируем для использования
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Game, GameObject };
-}
+module.exports = { Game, GameObject };

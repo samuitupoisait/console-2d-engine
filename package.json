@@ -1,0 +1,21 @@
+{
+  "name": "console-2d-engine",
+  "version": "1.0.0",
+  "description": "Super simple 2D console game engine for JavaScript",
+  "main": "engine.js",
+  "scripts": {
+    "start": "node examples.js",
+    "tutorial": "node tutorial.js",
+    "examples": "node examples.js"
+  },
+  "keywords": [
+    "game",
+    "engine",
+    "2d",
+    "console",
+    "javascript",
+    "learning"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
